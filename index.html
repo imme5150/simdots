@@ -18,7 +18,7 @@
         <option>fuchsia</option>
         <option>green</option>
         <option>lime</option>
-        <option>olive</option>
+        <option>orange</option>
         <option>yellow</option>
         <option>navy</option>
         <option>blue</option>
@@ -26,14 +26,21 @@
         <option>aqua</option>
       </select>
       <br>
-      <label for="speed">Speed:</label>
-      <input id="speed" type="range" min="0" max="10" step="0.1" />
       <br>
-      <label for="dir">Direction:</label>
-      <input id="dir" type="range" min="0" max="6.283" step="0.1" />
-      <br>
-      <label for="wiggle">Wiggle:</label>
-      <input id="wiggle" type="range" min="0" max="10" step="0.5" value="0">
+      <span id="settings">
+        <label for="size">Size:</label><br>
+        <input id="size" type="range" value="3" min="1" max="40" step="0.5">
+        <br>
+        <br>
+        <label for="speed">Speed:</label>
+        <input id="speed" type="range" min="0" max="10" step="0.1" />
+        <br>
+        <label for="dir">Direction:</label>
+        <input id="dir" type="range" min="0" max="6.283" step="0.1" />
+        <br>
+        <label for="wiggle">Wiggle:</label>
+        <input id="wiggle" type="range" min="0" max="10" step="0.5" value="0">
+      </span>
       <br>
       <br>
       <div>Pause: <input id="pause" type="checkbox"/></div>
@@ -43,30 +50,46 @@
     <canvas id="main" style="width:80%;height:100%;display:block"></canvas>
     <script>
       // TODO:
-      // - save preference by color
-      // - ability to draw in color from dropdown
+      // - 1 color turns into another
       // - collision detection + rules
-      // - direction as circle
+      // - direction as circle - https://bgrins.github.io/ui.anglepicker/
       // - hold mouse down keeps making dots - in amimate?
       // - Direction * speed variance? store rnd value on each dot - spread is good - needs to stay centered on direction
-      const radius = 3;
       const canvas = document.getElementById("main");
+      const behaviors = {};
       const resizeObserver = new ResizeObserver(() => {
         canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
         canvas.height = Math.round(canvas.clientHeight * devicePixelRatio);
       });
       resizeObserver.observe(canvas);
       function inBounds(dot) {
-        if (dot.x + radius > canvas.width || dot.x - radius < 0 || dot.y + radius > canvas.height || dot.y - radius < 0) {
+        if (dot.x - dot.radius > canvas.width || dot.x + dot.radius < 0 || dot.y - dot.radius > canvas.height || dot.y + dot.radius < 0) {
           return false
         }
         return true
       }
+      document.getElementById("settings").addEventListener('change', (e) => {
+        const key = e.target.getAttribute('id');
+        behaviors[currentColor][key] = Number(e.target.value);
+      });
+      const colorSelector = document.getElementById("color");
+      var currentColor;
+      (setSelectedColor = function() {
+        currentColor = colorSelector.value;
+        const needsDefaults = !behaviors[currentColor];
+        if (needsDefaults) behaviors[currentColor] = {};
+        const settings = { speed:5, dir:3.14, wiggle:0, size:3 };
+        for (const [key, defaultValue] of Object.entries(settings)) {
+          if (needsDefaults) behaviors[currentColor][key] = defaultValue;
+          document.getElementById(key).value = behaviors[currentColor][key];
+        }
+      })();
+
+      colorSelector.addEventListener('change', setSelectedColor)
 
       const ctx = canvas.getContext("2d", {alpha:false});
       var drawing = false;
-      const dots = [];
-      const cdots = [];
+      const dots = {};
 
       canvas.addEventListener("mousedown", (event) => {
         drawing = true;
@@ -90,7 +113,9 @@
         addDot(x,y)
       });
       function addDot(x,y) {
-        cdots.push({x:x, y:y});
+        const radius = Number(document.getElementById('size').value)
+        dots[currentColor] = dots[currentColor] || [];
+        dots[currentColor].push({x:x, y:y, radius:radius});
       }
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -98,46 +123,40 @@
         ctx.fillStyle = "lightblue";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const freq = Number(document.getElementById('freq').value)
+        /*const freq = Number(document.getElementById('freq').value)
         if (!document.getElementById('pause').checked) {
           for (let cdot of cdots) {
             if (Math.random() <= freq / 30) {
               dots.push({x:cdot.x,y:cdot.y})
             }
           }
-        }
-        ctx.fillStyle = document.getElementById('color').value;
-        var iOut = 0;
-        const speed = Number(document.getElementById('speed').value)
-        const angle = Number(document.getElementById('dir').value)
-        const wiggle = Number(document.getElementById('wiggle').value)
-        for (var i = 0; i < dots.length; i++) {
-          const dot = dots[i];
-          // Update dot position
-          if (!document.getElementById('pause').checked) {
-           const dx = Math.cos(angle) * speed;
-           const dy = Math.sin(angle) * speed;
-           dot.x += dx + Math.random() * wiggle - wiggle / 2;
-           dot.y += dy + Math.random() * wiggle - wiggle / 2;
-          }
-          if (inBounds(dot)) {
-            dots[iOut++] = dot;
+        }*/
+        for (const [color, dotArray] of Object.entries(dots)) {
+          const speed = behaviors[color].speed;
+          const angle = behaviors[color].dir;
+          const wiggle = behaviors[color].wiggle;
+          var iOut = 0;
+          ctx.fillStyle = color;
+          for (var i = 0; i < dotArray.length; i++) {
+            const dot = dotArray[i];
+            // Update dot position
+            if (!document.getElementById('pause').checked) {
+             const dx = Math.cos(angle) * speed;
+             const dy = Math.sin(angle) * speed;
+             dot.x += dx + Math.random() * wiggle - wiggle / 2;
+             dot.y += dy + Math.random() * wiggle - wiggle / 2;
+            }
+            if (inBounds(dot)) {
+              dotArray[iOut++] = dot;
 
-            // Draw dot
-            ctx.beginPath();
-            ctx.arc(dot.x, dot.y, radius, 0, 2 * Math.PI);
-            ctx.fill();
+              // Draw dot
+              ctx.beginPath();
+              ctx.arc(dot.x, dot.y, dot.radius, 0, 2 * Math.PI);
+              ctx.fill();
+            }
           }
+          dotArray.length = iOut;
         }
-        dots.length = iOut;
-        ctx.fillStyle = "brown";
-        for (let dot of cdots) {
-          // Draw dot
-          ctx.beginPath();
-          ctx.arc(dot.x, dot.y, radius, 0, 2 * Math.PI);
-          ctx.fill();
-        }
-
         requestAnimationFrame(animate);
       }
 
