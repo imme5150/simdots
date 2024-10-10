@@ -25,6 +25,28 @@
         <option>teal</option>
         <option>aqua</option>
       </select>
+      &#x27A1;
+      <select id="color-dest">
+        <option>black</option>
+        <option>silver</option>
+        <option>gray</option>
+        <option>white</option>
+        <option>maroon</option>
+        <option>red</option>
+        <option>purple</option>
+        <option>fuchsia</option>
+        <option>green</option>
+        <option>lime</option>
+        <option>orange</option>
+        <option>yellow</option>
+        <option>navy</option>
+        <option>blue</option>
+        <option>teal</option>
+        <option>aqua</option>
+      </select>
+      <br>
+      <label for="freq">Amount:</label>
+      <input id="freq" type="range" min="0" max="1" step="0.05">
       <br>
       <br>
       <span id="settings">
@@ -44,17 +66,16 @@
       <br>
       <br>
       <div>Pause: <input id="pause" type="checkbox"/></div>
-      <label for="freq">Amount:</label>
-      <input id="freq" type="range" min="0" max="1" step="0.05">
     </div>
     <canvas id="main" style="width:80%;height:100%;display:block"></canvas>
     <script>
       // TODO:
-      // - 1 color turns into another
+      // - store rnd on dot
+      // - add spread slider - needs to stay centered on direction
       // - collision detection + rules
       // - direction as circle - https://bgrins.github.io/ui.anglepicker/
       // - hold mouse down keeps making dots - in amimate?
-      // - Direction * speed variance? store rnd value on each dot - spread is good - needs to stay centered on direction
+      // - speed variance?
       const canvas = document.getElementById("main");
       const behaviors = {};
       const resizeObserver = new ResizeObserver(() => {
@@ -72,20 +93,38 @@
         const key = e.target.getAttribute('id');
         behaviors[currentColor][key] = Number(e.target.value);
       });
+      const transform = {};
+      const transformSelector = document.getElementById("color-dest");
+      const freqSelector = document.getElementById("freq");
       const colorSelector = document.getElementById("color");
+      function setDefaults(color, updateSelector) {
+        const needsDefaults = !behaviors[color];
+        if (needsDefaults) behaviors[color] = {};
+        const settings = { speed:5, dir:3.14, wiggle:0, size:3 };
+        for (const [key, defaultValue] of Object.entries(settings)) {
+          if (needsDefaults) behaviors[color][key] = defaultValue;
+          if (updateSelector) document.getElementById(key).value = behaviors[color][key];
+        }
+      }
       var currentColor;
       (setSelectedColor = function() {
         currentColor = colorSelector.value;
-        const needsDefaults = !behaviors[currentColor];
-        if (needsDefaults) behaviors[currentColor] = {};
-        const settings = { speed:5, dir:3.14, wiggle:0, size:3 };
-        for (const [key, defaultValue] of Object.entries(settings)) {
-          if (needsDefaults) behaviors[currentColor][key] = defaultValue;
-          document.getElementById(key).value = behaviors[currentColor][key];
+        setDefaults(currentColor, 'updateSelector');
+        if(!transform[currentColor]) {
+          transform[currentColor] = {amount:0.5, color:currentColor};
         }
+        transformSelector.value = transform[currentColor].color;
+        freqSelector.value = transform[currentColor].amount;
       })();
-
       colorSelector.addEventListener('change', setSelectedColor)
+
+      transformSelector.addEventListener('change', (e) => {
+        transform[currentColor].color = e.target.value;
+      })
+
+      freqSelector.addEventListener('change', (e) => {
+        transform[currentColor].amount = e.target.value;
+      })
 
       const ctx = canvas.getContext("2d", {alpha:false});
       var drawing = false;
@@ -123,14 +162,6 @@
         ctx.fillStyle = "lightblue";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        /*const freq = Number(document.getElementById('freq').value)
-        if (!document.getElementById('pause').checked) {
-          for (let cdot of cdots) {
-            if (Math.random() <= freq / 30) {
-              dots.push({x:cdot.x,y:cdot.y})
-            }
-          }
-        }*/
         for (const [color, dotArray] of Object.entries(dots)) {
           const speed = behaviors[color].speed;
           const angle = behaviors[color].dir;
@@ -140,19 +171,29 @@
           for (var i = 0; i < dotArray.length; i++) {
             const dot = dotArray[i];
             // Update dot position
-            if (!document.getElementById('pause').checked) {
+            const paused = document.getElementById('pause').checked;
+            if (!paused) {
              const dx = Math.cos(angle) * speed;
              const dy = Math.sin(angle) * speed;
              dot.x += dx + Math.random() * wiggle - wiggle / 2;
              dot.y += dy + Math.random() * wiggle - wiggle / 2;
             }
             if (inBounds(dot)) {
-              dotArray[iOut++] = dot;
+              if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
+                const targetColor = transform[color].color;
+                if (!dots[targetColor]) {
+                  dots[targetColor] = [];
+                  setDefaults(targetColor, false);
+                }
+                dots[targetColor].push(dot);
+              } else {
+                dotArray[iOut++] = dot;
 
-              // Draw dot
-              ctx.beginPath();
-              ctx.arc(dot.x, dot.y, dot.radius, 0, 2 * Math.PI);
-              ctx.fill();
+                // Draw dot
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, dot.radius, 0, 2 * Math.PI);
+                ctx.fill();
+              }
             }
           }
           dotArray.length = iOut;
