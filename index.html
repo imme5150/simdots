@@ -27,6 +27,7 @@
       </select>
       &#x27A1;
       <select id="color-dest">
+        <option>⦻</option>
         <option>black</option>
         <option>silver</option>
         <option>gray</option>
@@ -44,6 +45,7 @@
         <option>teal</option>
         <option>aqua</option>
       </select>
+      <input id="persist" type="checkbox"/>⧂
       <br>
       <label for="freq">Amount:</label>
       <input id="freq" type="range" min="0" max="1" step="0.05">
@@ -72,6 +74,7 @@
       // TODO:
       // - store rnd on dot
       // - add spread slider - needs to stay centered on direction
+      // - boom mode
       // - collision detection + rules
       // - direction as circle - https://bgrins.github.io/ui.anglepicker/
       // - hold mouse down keeps making dots - in amimate?
@@ -96,11 +99,12 @@
       const transform = {};
       const transformSelector = document.getElementById("color-dest");
       const freqSelector = document.getElementById("freq");
+      const persistSelector = document.getElementById("persist");
       const colorSelector = document.getElementById("color");
       function setDefaults(color, updateSelector) {
         const needsDefaults = !behaviors[color];
         if (needsDefaults) behaviors[color] = {};
-        const settings = { speed:5, dir:3.14, wiggle:0, size:3 };
+        const settings = { speed:5, dir:3.14, wiggle:0, size:3, persist:false };
         for (const [key, defaultValue] of Object.entries(settings)) {
           if (needsDefaults) behaviors[color][key] = defaultValue;
           if (updateSelector) document.getElementById(key).value = behaviors[color][key];
@@ -111,20 +115,24 @@
         currentColor = colorSelector.value;
         setDefaults(currentColor, 'updateSelector');
         if(!transform[currentColor]) {
-          transform[currentColor] = {amount:0.5, color:currentColor};
+          transform[currentColor] = {amount:0.5, color:currentColor, persist:false};
         }
         transformSelector.value = transform[currentColor].color;
         freqSelector.value = transform[currentColor].amount;
+        persistSelector.checked = transform[currentColor].persist;
       })();
       colorSelector.addEventListener('change', setSelectedColor)
 
       transformSelector.addEventListener('change', (e) => {
         transform[currentColor].color = e.target.value;
       })
-
       freqSelector.addEventListener('change', (e) => {
         transform[currentColor].amount = e.target.value;
       })
+      persistSelector.addEventListener('change', (e) => {
+        transform[currentColor].persist = e.target.checked;
+      })
+
 
       const ctx = canvas.getContext("2d", {alpha:false});
       var drawing = false;
@@ -181,11 +189,16 @@
             if (inBounds(dot)) {
               if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
                 const targetColor = transform[color].color;
-                if (!dots[targetColor]) {
-                  dots[targetColor] = [];
-                  setDefaults(targetColor, false);
+                if (targetColor.length > 1) {
+                  if (!dots[targetColor]) {
+                    dots[targetColor] = [];
+                    setDefaults(targetColor, false);
+                  }
+                  dots[targetColor].push(dot);
+                  if (transform[color].persist) { // keep original dot too
+                    dotArray[iOut++] = Object.assign({}, dot);
+                  }
                 }
-                dots[targetColor].push(dot);
               } else {
                 dotArray[iOut++] = dot;
 
