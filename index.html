@@ -181,7 +181,7 @@
       });
       canvas.addEventListener('touchmove', (event) => {
         event.preventDefault();
-        for (i = 0; i < event.touches.length; i++){
+        for (i = 0; i < event.touches.length; i++) {
           addDot(event.touches[i].clientX - canvas.offsetLeft, event.touches[i].clientY - canvas.offsetTop);
         }
       });
@@ -189,7 +189,6 @@
         if (!drawing) return
         addDot(event.clientX - canvas.offsetLeft, event.clientY - canvas.offsetTop);
       });
-      [, ''].forEach((eventName) => {
       function addDot(x,y) {
         const radius = Number(document.getElementById('size').value)
         dots[currentColor] = dots[currentColor] || [];
