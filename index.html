@@ -239,7 +239,9 @@
                   }
                   dots[targetColor].push(dot);
                   if (transform[color].persist) { // keep original dot too
-                    dotArray[iOut++] = Object.assign({}, dot);
+                    var newDot = Object.assign({}, dot);
+                    newDot.rnd = Math.random(); // new random number
+                    dotArray[iOut++] = newDot;
                   }
                 }
               } else {
