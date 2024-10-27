@@ -252,7 +252,8 @@
           }
         }
         for (const [color, dotSizes] of Object.entries(dots)) {
-          for (const [radius, dotArray] of Object.entries(dotSizes)) {
+          for (var [radius, dotArray] of Object.entries(dotSizes)) {
+            radius = Number(radius);
             const speed = targetSpeed > behaviors[color].speed ? targetSpeed : behaviors[color].speed;
             const wiggle = targetWiggle > behaviors[color].wiggle ? targetWiggle : behaviors[color].wiggle;
             var iOut = 0;
