@@ -303,7 +303,7 @@
             } else {
               boomButton.classList.remove('blink');
             }
-            if (Object.values(dots).reduce((sum, a) => sum + a.length, 0) == 0) {
+            if (Object.values(dots).reduce((sum, dotSizes) => sum + Object.values(dotSizes).reduce((sum, a) => sum + a.length), 0) == 0) {
               boomStart = false;
               boomButton.classList.remove('blink', 'active');
             }
