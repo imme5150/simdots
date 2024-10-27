@@ -89,13 +89,17 @@
       </span>
       <br>
       <br>
-      <div>Pause: <input id="pause" type="checkbox"/></div>
+      <div><label for="pause">Pause:</label> <input id="pause" type="checkbox"/></div>
+      <br>
+      <button id="save">Save</button>
       <br>
       <button id="boom">BOOM</button>
     </div>
     <canvas id="main" style="width:80%;height:100%;display:block"></canvas>
     <script>
       // TODO:
+      // - Load state from JSON File
+      // - add collision detection w/ walls - top, right, bottom, left?
       // - collision detection + rules
       // - direction as circle - https://bgrins.github.io/ui.anglepicker/
       // - hold mouse down keeps making dots - in amimate?
@@ -107,12 +111,46 @@
         canvas.height = Math.round(canvas.clientHeight * devicePixelRatio);
       });
       resizeObserver.observe(canvas);
-      function inBounds(dot) {
-        if (dot.x - dot.radius > canvas.width || dot.x + dot.radius < 0 || dot.y - dot.radius > canvas.height || dot.y + dot.radius < 0) {
+      function inBounds(dot, radius) {
+        if (dot.x - radius > canvas.width || dot.x + radius < 0 || dot.y - radius > canvas.height || dot.y + radius < 0) {
           return false
         }
         return true
       }
+      async function saveFile(data, fileName) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: fileName
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(data);
+          await writable.close();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      document.getElementById("save").addEventListener('click', (e) => {
+        const simplifiedDots = Object.fromEntries(
+          Object.entries(dots).map(([color, dotSizes]) => ([
+            color,
+            Object.fromEntries(
+              Object.entries(dotSizes).map(([radius, arrayOfDotObjects]) => ([
+                radius,
+                arrayOfDotObjects.map(dot => ([
+                  Math.round(dot.x * 10) / 10,
+                  Math.round(dot.y * 10) / 10
+                ]))
+              ])
+            ))
+          ]))
+        );
+        saveFile(JSON.stringify({
+          dots: simplifiedDots,
+          behaviors: behaviors,
+          transform: transform
+        }), "myDotFile.json");
+      })
+
       document.getElementById("settings").addEventListener('change', (e) => {
         const key = e.target.getAttribute('id');
         behaviors[currentColor][key] = Number(e.target.value);
@@ -125,7 +163,7 @@
       function setDefaults(color, updateSelectors) {
         const needsDefaults = !behaviors[color];
         if (needsDefaults) behaviors[color] = {};
-        const settings = { speed:5, dir:3.14, spread:0, wiggle:0, size:3, persist:false };
+        const settings = {speed:5, dir:3.14, spread:0, wiggle:0, size:3};
         for (const [key, defaultValue] of Object.entries(settings)) {
           if (needsDefaults) behaviors[color][key] = defaultValue;
           if (updateSelectors) document.getElementById(key).value = behaviors[color][key];
@@ -191,8 +229,9 @@
       });
       function addDot(x,y) {
         const radius = Number(document.getElementById('size').value)
-        dots[currentColor] = dots[currentColor] || [];
-        dots[currentColor].push({x:x, y:y, radius:radius, rnd:Math.random()});
+        dots[currentColor] = dots[currentColor] || {};
+        dots[currentColor][radius] = dots[currentColor][radius] || [];
+        dots[currentColor][radius].push({x:x, y:y, rnd:Math.random()});
       }
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -212,59 +251,62 @@
             targetSpread = 6.283;
           }
         }
-        for (const [color, dotArray] of Object.entries(dots)) {
-          const speed = targetSpeed > behaviors[color].speed ? targetSpeed : behaviors[color].speed;
-          const wiggle = targetWiggle > behaviors[color].wiggle ? targetWiggle : behaviors[color].wiggle;
-          var iOut = 0;
-          ctx.fillStyle = color;
-          for (var i = 0; i < dotArray.length; i++) {
-            const dot = dotArray[i];
-            // Update dot position
-            const paused = !boomStart && document.getElementById('pause').checked;
-            if (!paused) {
-              const spread = targetSpread > behaviors[color].spread ? targetSpread : behaviors[color].spread;
-              const angle = behaviors[color].dir + dot.rnd * spread - spread / 2;
-              const dx = Math.cos(angle) * speed;
-              const dy = Math.sin(angle) * speed;
-              dot.x += dx + Math.random() * wiggle - wiggle / 2;
-              dot.y += dy + Math.random() * wiggle - wiggle / 2;
-            }
-            if (inBounds(dot)) {
-              if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
-                const targetColor = transform[color].color;
-                if (targetColor.length > 1) {
-                  if (!dots[targetColor]) {
-                    dots[targetColor] = [];
-                    setDefaults(targetColor, false);
+        for (const [color, dotSizes] of Object.entries(dots)) {
+          for (const [radius, dotArray] of Object.entries(dotSizes)) {
+            const speed = targetSpeed > behaviors[color].speed ? targetSpeed : behaviors[color].speed;
+            const wiggle = targetWiggle > behaviors[color].wiggle ? targetWiggle : behaviors[color].wiggle;
+            var iOut = 0;
+            ctx.fillStyle = color;
+            for (var i = 0; i < dotArray.length; i++) {
+              const dot = dotArray[i];
+              // Update dot position
+              const paused = !boomStart && document.getElementById('pause').checked;
+              if (!paused) {
+                const spread = targetSpread > behaviors[color].spread ? targetSpread : behaviors[color].spread;
+                const angle = behaviors[color].dir + dot.rnd * spread - spread / 2;
+                const dx = Math.cos(angle) * speed;
+                const dy = Math.sin(angle) * speed;
+                dot.x += dx + Math.random() * wiggle - wiggle / 2;
+                dot.y += dy + Math.random() * wiggle - wiggle / 2;
+              }
+              if (inBounds(dot, radius)) {
+                if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
+                  const targetColor = transform[color].color;
+                  if (targetColor.length > 1) {
+                    if (!dots[targetColor]) {
+                      dots[targetColor] = {};
+                      setDefaults(targetColor, false);
+                    }
+                    dots[targetColor][radius] = dots[targetColor][radius] || []
+                    dots[targetColor][radius].push(dot);
+                    if (transform[color].persist) { // keep original dot too
+                      var newDot = Object.assign({}, dot);
+                      newDot.rnd = Math.random(); // new random number
+                      dotArray[iOut++] = newDot;
+                    }
                   }
-                  dots[targetColor].push(dot);
-                  if (transform[color].persist) { // keep original dot too
-                    var newDot = Object.assign({}, dot);
-                    newDot.rnd = Math.random(); // new random number
-                    dotArray[iOut++] = newDot;
-                  }
-                }
-              } else {
-                dotArray[iOut++] = dot;
+                } else {
+                  dotArray[iOut++] = dot;
 
-                // Draw dot
-                ctx.beginPath();
-                ctx.arc(dot.x, dot.y, dot.radius, 0, 2 * Math.PI);
-                ctx.fill();
+                  // Draw dot
+                  ctx.beginPath();
+                  ctx.arc(dot.x, dot.y, radius, 0, 2 * Math.PI);
+                  ctx.fill();
+                }
               }
             }
+            dotArray.length = iOut;
           }
-          dotArray.length = iOut;
-        }
-        if (boomStart) {
-          if (Math.floor((new Date - boomStart) / 1000) % 2) {
-            boomButton.classList.add('blink');
-          } else {
-            boomButton.classList.remove('blink');
-          }
-          if (Object.values(dots).reduce((sum, a) => sum + a.length, 0) == 0) {
-            boomStart = false;
-            boomButton.classList.remove('blink', 'active');
+          if (boomStart) {
+            if (Math.floor((new Date - boomStart) / 1000) % 2) {
+              boomButton.classList.add('blink');
+            } else {
+              boomButton.classList.remove('blink');
+            }
+            if (Object.values(dots).reduce((sum, a) => sum + a.length, 0) == 0) {
+              boomStart = false;
+              boomButton.classList.remove('blink', 'active');
+            }
           }
         }
         requestAnimationFrame(animate);
