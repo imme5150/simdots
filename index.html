@@ -1,4 +1,5 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <title>SimDots</title>
   </head>
@@ -100,15 +101,16 @@
       // TODO:
       // - Load state from JSON File
       // - add collision detection w/ walls - top, right, bottom, left?
-      // - collision detection + rules
       // - direction as circle - https://bgrins.github.io/ui.anglepicker/
+      // - collision rules GUI
       // - hold mouse down keeps making dots - in amimate?
       // - speed variance?
       const canvas = document.getElementById("main");
       const behaviors = {};
+      const rules = {black:[{touches:['gray'], color:'gray', freq:0.15}], green:[{touches:['black'], color:'gray', freq:1}]};
       const resizeObserver = new ResizeObserver(() => {
         canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
-        canvas.height = Math.round(canvas.clientHeight * devicePixelRatio);
+        canvas.height = Math.round((window.visualViewport.height - 16) * devicePixelRatio);
       });
       resizeObserver.observe(canvas);
       function inBounds(dot, radius) {
@@ -157,9 +159,10 @@
           ]))
         );
         saveFile(JSON.stringify({
-          dots: simplifiedDots,
           behaviors: behaviors,
-          transform: transform
+          transform: transform,
+          rules: rules,
+          dots: simplifiedDots,
         }), "myDotFile.json");
       })
 
@@ -186,10 +189,10 @@
         currentColor = colorSelector.value;
         setDefaults(currentColor, 'updateSelectors');
         if(!transform[currentColor]) {
-          transform[currentColor] = {amount:0.5, color:currentColor, persist:false};
+          transform[currentColor] = {freq:0.5, color:currentColor, persist:false};
         }
         transformSelector.value = transform[currentColor].color;
-        freqSelector.value = transform[currentColor].amount;
+        freqSelector.value = transform[currentColor].freq;
         persistSelector.checked = transform[currentColor].persist;
       })();
       colorSelector.addEventListener('change', setSelectedColor)
@@ -198,7 +201,7 @@
         transform[currentColor].color = e.target.value;
       })
       freqSelector.addEventListener('change', (e) => {
-        transform[currentColor].amount = e.target.value;
+        transform[currentColor].freq = e.target.value;
       })
       persistSelector.addEventListener('change', (e) => {
         transform[currentColor].persist = e.target.checked;
@@ -253,6 +256,35 @@
           }
         }
       }
+      function collision(srcDot, srcRadius, targetColor) {
+        const targetDots = dots[targetColor];
+        if (!targetDots) return false
+        for (const [radius, dotArray] of Object.entries(targetDots)) {
+          const targetRadius = Number(radius);
+          for (var i = 0; i < dotArray.length; i++) {
+            const dot = dotArray[i];
+            if (srcDot != dot && srcDot.x - srcRadius <= dot.x + targetRadius && srcDot.x + srcRadius >= dot.x - targetRadius && srcDot.y - srcRadius <= dot.y + targetRadius && srcDot.y + srcRadius >= dot.y - targetRadius) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+      function transformInto(dot, radius, srcColor) {
+        const relevantTransform = transform[srcColor];
+        if (relevantTransform && relevantTransform.color != srcColor && Math.random() <= relevantTransform.freq / 30) {
+          return relevantTransform
+        }
+        if ( rules[srcColor] && rules[srcColor].length > 0 ) {
+          for (const rule of rules[srcColor]) {
+            const targetColor = rule.touches[0];
+            if (collision(dot, radius, targetColor) && Math.random() <= rule.freq) {
+              return rule
+            }
+          }
+        }
+        return false
+      }
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.beginPath();
@@ -289,8 +321,8 @@
               dot.y += dy + Math.random() * wiggle - wiggle / 2;
             }
             if (inBounds(dot, radius)) {
-              if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
-                const targetColor = transform[color].color;
+              if (!paused && (newDot = transformInto(dot, radius, color))) {
+                const targetColor = newDot.color;
                 if (targetColor.length > 1) {
                   if (!dots[targetColor]) {
                     dots[targetColor] = {};
@@ -298,7 +330,7 @@
                   }
                   dots[targetColor][radius] = dots[targetColor][radius] || []
                   dots[targetColor][radius].push(dot);
-                  if (transform[color].persist) { // keep original dot too
+                  if (newDot.persist) { // keep original dot too
                     var newDot = Object.assign({}, dot);
                     newDot.rnd = Math.random(); // new random number
                     dotArray[iOut++] = newDot;
