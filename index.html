@@ -107,7 +107,7 @@
       // - speed variance?
       const canvas = document.getElementById("main");
       const behaviors = {};
-      const rules = {black:[{touches:['gray'], color:'gray', freq:0.15}], green:[{touches:['black'], color:'gray', freq:1}]};
+      const rules = {black:[{touches:['gray'], color:'gray', freq:0.15}], green:[{touches:['black'], color:'red', freq:1}]};
       const resizeObserver = new ResizeObserver(() => {
         canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
         canvas.height = Math.round((window.visualViewport.height - 16) * devicePixelRatio);
