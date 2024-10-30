@@ -245,6 +245,14 @@
         dots[currentColor][radius] = dots[currentColor][radius] || [];
         dots[currentColor][radius].push({x:x, y:y, rnd:Math.random()});
       }
+      function allDots(callback) {
+        for (const [color, dotSizes] of Object.entries(dots)) {
+          for (var [radius, dotArray] of Object.entries(dotSizes)) {
+            radius = Number(radius);
+            callback(color, radius, dotArray);
+          }
+        }
+      }
       function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.beginPath();
@@ -263,63 +271,60 @@
             targetSpread = 6.283;
           }
         }
-        for (const [color, dotSizes] of Object.entries(dots)) {
-          for (var [radius, dotArray] of Object.entries(dotSizes)) {
-            radius = Number(radius);
-            const speed = targetSpeed > behaviors[color].speed ? targetSpeed : behaviors[color].speed;
-            const wiggle = targetWiggle > behaviors[color].wiggle ? targetWiggle : behaviors[color].wiggle;
-            var iOut = 0;
-            ctx.fillStyle = color;
-            for (var i = 0; i < dotArray.length; i++) {
-              const dot = dotArray[i];
-              // Update dot position
-              const paused = !boomStart && document.getElementById('pause').checked;
-              if (!paused) {
-                const spread = targetSpread > behaviors[color].spread ? targetSpread : behaviors[color].spread;
-                const angle = behaviors[color].dir + dot.rnd * spread - spread / 2;
-                const dx = Math.cos(angle) * speed;
-                const dy = Math.sin(angle) * speed;
-                dot.x += dx + Math.random() * wiggle - wiggle / 2;
-                dot.y += dy + Math.random() * wiggle - wiggle / 2;
-              }
-              if (inBounds(dot, radius)) {
-                if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
-                  const targetColor = transform[color].color;
-                  if (targetColor.length > 1) {
-                    if (!dots[targetColor]) {
-                      dots[targetColor] = {};
-                      setDefaults(targetColor, false);
-                    }
-                    dots[targetColor][radius] = dots[targetColor][radius] || []
-                    dots[targetColor][radius].push(dot);
-                    if (transform[color].persist) { // keep original dot too
-                      var newDot = Object.assign({}, dot);
-                      newDot.rnd = Math.random(); // new random number
-                      dotArray[iOut++] = newDot;
-                    }
+        allDots((color, radius, dotArray) => {
+          const speed = targetSpeed > behaviors[color].speed ? targetSpeed : behaviors[color].speed;
+          const wiggle = targetWiggle > behaviors[color].wiggle ? targetWiggle : behaviors[color].wiggle;
+          var iOut = 0;
+          ctx.fillStyle = color;
+          for (var i = 0; i < dotArray.length; i++) {
+            const dot = dotArray[i];
+            // Update dot position
+            const paused = !boomStart && document.getElementById('pause').checked;
+            if (!paused) {
+              const spread = targetSpread > behaviors[color].spread ? targetSpread : behaviors[color].spread;
+              const angle = behaviors[color].dir + dot.rnd * spread - spread / 2;
+              const dx = Math.cos(angle) * speed;
+              const dy = Math.sin(angle) * speed;
+              dot.x += dx + Math.random() * wiggle - wiggle / 2;
+              dot.y += dy + Math.random() * wiggle - wiggle / 2;
+            }
+            if (inBounds(dot, radius)) {
+              if (!paused && transform[color] && transform[color].color != color && Math.random() <= transform[color].amount / 30) {
+                const targetColor = transform[color].color;
+                if (targetColor.length > 1) {
+                  if (!dots[targetColor]) {
+                    dots[targetColor] = {};
+                    setDefaults(targetColor, false);
                   }
-                } else {
-                  dotArray[iOut++] = dot;
-
-                  // Draw dot
-                  ctx.beginPath();
-                  ctx.arc(dot.x, dot.y, radius, 0, 2 * Math.PI);
-                  ctx.fill();
+                  dots[targetColor][radius] = dots[targetColor][radius] || []
+                  dots[targetColor][radius].push(dot);
+                  if (transform[color].persist) { // keep original dot too
+                    var newDot = Object.assign({}, dot);
+                    newDot.rnd = Math.random(); // new random number
+                    dotArray[iOut++] = newDot;
+                  }
                 }
+              } else {
+                dotArray[iOut++] = dot;
+
+                // Draw dot
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, radius, 0, 2 * Math.PI);
+                ctx.fill();
               }
             }
-            dotArray.length = iOut;
           }
-          if (boomStart) {
-            if (Math.floor((new Date - boomStart) / 1000) % 2) {
-              boomButton.classList.add('blink');
-            } else {
-              boomButton.classList.remove('blink');
-            }
-            if (Object.values(dots).reduce((sum, dotSizes) => sum + Object.values(dotSizes).reduce((sum, a) => sum + a.length), 0) == 0) {
-              boomStart = false;
-              boomButton.classList.remove('blink', 'active');
-            }
+          dotArray.length = iOut;
+        });
+        if (boomStart) {
+          if (Math.floor(msSinceBoom / 1000) % 2) {
+            boomButton.classList.add('blink');
+          } else {
+            boomButton.classList.remove('blink');
+          }
+          if (Object.values(dots).reduce((sum, dotSizes) => sum + Object.values(dotSizes).reduce((sum, a) => sum + a.length), 0) == 0) {
+            boomStart = false;
+            boomButton.classList.remove('blink', 'active');
           }
         }
         requestAnimationFrame(animate);
