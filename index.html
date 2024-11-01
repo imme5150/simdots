@@ -107,7 +107,7 @@
       // - speed variance?
       const canvas = document.getElementById("main");
       const behaviors = {};
-      const rules = {black:[{touches:['gray'], color:'gray', freq:0.15}], green:[{touches:['black'], color:'red', freq:1}]};
+      const rules = {white:[{touches:['silver'], color:'silver', freq:0.01}], silver:[{touches:['yellow'], color:'aqua', freq:0.1}], aqua:[{touches:['gray'], color:'gray', freq:0.01}], yellow:[{touches:['gray'], color:'yellow', freq:0.05}]};
       const resizeObserver = new ResizeObserver(() => {
         canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
         canvas.height = Math.round((window.visualViewport.height - 16) * devicePixelRatio);
@@ -178,7 +178,7 @@
       function setDefaults(color, updateSelectors) {
         const needsDefaults = !behaviors[color];
         if (needsDefaults) behaviors[color] = {};
-        const settings = {speed:5, dir:3.14, spread:0, wiggle:0, size:3};
+        const settings = {speed:0, dir:3.14, spread:0, wiggle:0, size:3};
         for (const [key, defaultValue] of Object.entries(settings)) {
           if (needsDefaults) behaviors[color][key] = defaultValue;
           if (updateSelectors) document.getElementById(key).value = behaviors[color][key];
